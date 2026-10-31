@@ -54,11 +54,20 @@ async function api(path, options = {}) {
   if (options.method && options.method !== "GET" && state.csrf) {
     headers["X-CSRF-Token"] = state.csrf;
   }
-  const response = await fetch(path, {
-    ...options,
-    headers,
-    credentials: "same-origin",
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      headers,
+      credentials: "same-origin",
+    });
+  } catch {
+    throw new Error("Cannot reach the expense tracker server. Run `python server.py` and open http://127.0.0.1:8000.");
+  }
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("The sign-in service is unavailable here. GitHub serves the code, but the app also needs its Python server.");
+  }
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || "Something went wrong. Please try again.");
   if (result.csrf) state.csrf = result.csrf;
@@ -97,11 +106,11 @@ function setAuthMode(mode) {
   state.authMode = mode;
   const registering = mode === "register";
   $("#auth-name").closest(".field").hidden = !registering;
-  $("#auth-title").textContent = registering ? "A fresh start." : "Welcome back.";
-  $("#auth-kicker").textContent = registering ? "MAKE YOUR MONEY MAKE SENSE" : "YOUR PERSONAL LEDGER";
+  $("#auth-title").textContent = registering ? "Create your account." : "Sign in to your account.";
+  $("#auth-kicker").textContent = registering ? "CREATE YOUR EXPENSE TRACKER ACCOUNT" : "EXPENSE TRACKER";
   $("#auth-subtitle").textContent = registering
-    ? "Create your private space and begin with a clearer view."
-    : "A clear view of your money starts here.";
+    ? "Save and track your income, expenses, and budgets."
+    : "Manage your income, expenses, and budgets.";
   $("#auth-submit").innerHTML = registering
     ? 'Create account <span aria-hidden="true">↗</span>'
     : 'Sign in <span aria-hidden="true">↗</span>';
@@ -338,6 +347,7 @@ async function handleAuth(event) {
   const button = $("#auth-submit");
   error.textContent = "";
   button.disabled = true;
+  button.textContent = state.authMode === "register" ? "Creating account..." : "Signing in...";
   try {
     const registering = state.authMode === "register";
     const payload = {
@@ -360,6 +370,9 @@ async function handleAuth(event) {
     error.textContent = problem.message;
   } finally {
     button.disabled = false;
+    button.innerHTML = state.authMode === "register"
+      ? 'Create account <span aria-hidden="true">↗</span>'
+      : 'Sign in <span aria-hidden="true">↗</span>';
   }
 }
 

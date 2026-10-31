@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4f3ed">
-  <title>Ledger House — money, with a little more clarity</title>
+  <title>Expense Tracker | Income, Spending &amp; Budgets</title>
   <link rel="stylesheet" href="/app.css">
   <script src="/app.js" defer></script>
 </head>
@@ -12,13 +12,13 @@
   <section id="auth-screen" class="auth-screen">
     <div class="auth-story">
       <a class="wordmark wordmark-light" href="/">
-        <span class="brand-mark" aria-hidden="true">l.</span>
-        <span>ledger house</span>
+        <span class="brand-mark" aria-hidden="true">₹</span>
+        <span>Expense Tracker</span>
       </a>
       <div class="story-copy">
-        <p class="eyebrow eyebrow-light">A calmer kind of money app</p>
-        <h1>Make room for<br>what matters.</h1>
-        <p>Know what came in, where it went, and what you can look forward to next.</p>
+        <p class="eyebrow eyebrow-light">EXPENSES, INCOME &amp; BUDGETS</p>
+        <h1>Know where<br>it goes.</h1>
+        <p>Record what you earn and spend, set category limits, and review your money over time.</p>
       </div>
       <div class="story-art" aria-hidden="true">
         <span class="art-sun"></span>
@@ -26,18 +26,18 @@
         <span class="art-orbit orbit-two"></span>
         <span class="art-plant plant-one"></span>
         <span class="art-plant plant-two"></span>
-        <div class="art-note"><span>YOUR MONEY, IN BALANCE</span><strong>Spend well.<br>Sleep well.</strong><i>✳</i></div>
+        <div class="art-note"><span>DEBITS &amp; CREDITS</span><strong>Every rupee,<br>accounted for.</strong><i>✳</i></div>
       </div>
       <p class="auth-footnote">Private by default. Your numbers belong to you.</p>
     </div>
     <div class="auth-panel">
       <div class="auth-mobile-brand">
-        <a class="wordmark" href="/"><span class="brand-mark" aria-hidden="true">l.</span><span>ledger house</span></a>
+        <a class="wordmark" href="/"><span class="brand-mark" aria-hidden="true">₹</span><span>Expense Tracker</span></a>
       </div>
       <div class="auth-form-wrap">
-        <p class="eyebrow" id="auth-kicker">YOUR PERSONAL LEDGER</p>
-        <h2 id="auth-title">Welcome back.</h2>
-        <p class="auth-subtitle" id="auth-subtitle">A clear view of your money starts here.</p>
+        <p class="eyebrow" id="auth-kicker">EXPENSE TRACKER</p>
+        <h2 id="auth-title">Sign in to your account.</h2>
+        <p class="auth-subtitle" id="auth-subtitle">Manage your income, expenses, and budgets.</p>
         <form id="auth-form">
           <label class="field auth-name-field" hidden for="auth-name">Your name
             <input id="auth-name" name="name" autocomplete="name" maxlength="80" placeholder="How should we call you?">
@@ -53,14 +53,14 @@
         </form>
         <p class="auth-switch"><span id="auth-switch-copy">New around here?</span> <button type="button" class="text-button" id="auth-switch">Create an account</button></p>
       </div>
-      <p class="auth-privacy">Your transactions and budgets stay in your private account.</p>
+      <p class="auth-privacy">Your transactions and budgets are saved to your account.</p>
     </div>
   </section>
 
   <div id="app-shell" class="app-shell" hidden>
     <aside class="sidebar">
       <a class="wordmark sidebar-brand" href="#" data-view="overview">
-        <span class="brand-mark" aria-hidden="true">l.</span><span class="brand-name">ledger house</span>
+        <span class="brand-mark" aria-hidden="true">₹</span><span class="brand-name">Expense Tracker</span>
       </a>
       <p class="nav-label">YOUR SPACE</p>
       <nav class="main-nav" aria-label="Main navigation">
@@ -72,14 +72,14 @@
       <div class="sidebar-bottom">
         <div class="sidebar-profile">
           <span class="avatar" id="user-avatar">L</span>
-          <span class="profile-copy"><strong id="user-name">Your account</strong><small>Personal ledger</small></span>
+          <span class="profile-copy"><strong id="user-name">Your account</strong><small>Expense tracker</small></span>
           <button class="icon-button logout-button" id="logout-button" aria-label="Sign out" title="Sign out">↗</button>
         </div>
       </div>
     </aside>
     <main class="main-area">
       <header class="topbar">
-        <div class="mobile-brand"><span class="brand-mark">l.</span><span>ledger house</span></div>
+        <div class="mobile-brand"><span class="brand-mark">₹</span><span>Expense Tracker</span></div>
         <div class="breadcrumb"><span>YOUR SPACE</span><b>/</b><strong id="breadcrumb-title">Overview</strong></div>
         <div class="topbar-actions">
           <span class="today-label" id="today-label"></span>
@@ -87,7 +87,7 @@
         </div>
       </header>
       <section id="page-content" class="page-content" aria-live="polite"></section>
-      <footer class="page-footer"><span>A little more clarity, every day.</span><span>LEDGER HOUSE <i>✳</i></span></footer>
+      <footer class="page-footer"><span>INCOME · EXPENSES · BUDGETS</span><span>EXPENSE TRACKER <i>₹</i></span></footer>
     </main>
   </div>
 

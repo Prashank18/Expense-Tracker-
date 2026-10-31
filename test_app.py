@@ -34,11 +34,12 @@ class LedgerApiTests(unittest.TestCase):
         type(self).account_number += 1
         self.cookie = ""
         self.csrf = ""
+        self.email = f"tester{self.account_number}@example.test"
         result, status, headers = self.request(
             "/api/register",
             {
                 "name": "Ledger Tester",
-                "email": f"tester{self.account_number}@example.test",
+                "email": self.email,
                 "password": "a-long-test-password",
             },
             method="POST",
@@ -81,7 +82,7 @@ class LedgerApiTests(unittest.TestCase):
 
     def test_dashboard_assets_are_served(self):
         assets = (
-            ("/", b"Ledger House"),
+            ("/", b"Expense Tracker"),
             ("/app.css", b"--forest"),
             ("/app.js", b"renderOverview"),
         )
@@ -89,6 +90,22 @@ class LedgerApiTests(unittest.TestCase):
             with urlopen(self.base_url + path, timeout=5) as response:
                 self.assertEqual(response.status, 200)
                 self.assertIn(expected, response.read())
+
+    def test_registered_user_can_sign_in(self):
+        self.cookie = ""
+        self.csrf = ""
+        result, status, headers = self.request(
+            "/api/login",
+            {"email": self.email, "password": "a-long-test-password"},
+            method="POST",
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(result["csrf"])
+        self.cookie = headers["Set-Cookie"].split(";", 1)[0]
+        self.csrf = result["csrf"]
+        profile, status, _ = self.request("/api/me")
+        self.assertEqual(status, 200)
+        self.assertEqual(profile["user"]["email"], self.email)
 
     def test_entries_budget_chart_and_alert_are_persisted(self):
         settings, status, _ = self.request(

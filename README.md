@@ -12,6 +12,8 @@ python server.py
 
 Open `http://127.0.0.1:8000`, create an account, then add debit and credit entries. The default database is created at `data/ledger.sqlite3`. To use another path, set `EXPENSE_DB_PATH` before starting the server.
 
+This is a Python-backed app, not a standalone HTML page. Opening `index.html` directly or hosting only the repository on GitHub Pages will not provide the API required for sign-in and data storage.
+
 Run the automated checks with:
 
 ```powershell
