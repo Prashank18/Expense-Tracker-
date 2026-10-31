@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f3ed">
+  <title>Ledger House — money, with a little more clarity</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <section id="auth-screen" class="auth-screen">
+    <div class="auth-story">
+      <a class="wordmark wordmark-light" href="/">
+        <span class="brand-mark" aria-hidden="true">l.</span>
+        <span>ledger house</span>
+      </a>
+      <div class="story-copy">
+        <p class="eyebrow eyebrow-light">A calmer kind of money app</p>
+        <h1>Make room for<br>what matters.</h1>
+        <p>Know what came in, where it went, and what you can look forward to next.</p>
+      </div>
+      <div class="story-art" aria-hidden="true">
+        <span class="art-sun"></span>
+        <span class="art-orbit orbit-one"></span>
+        <span class="art-orbit orbit-two"></span>
+        <span class="art-plant plant-one"></span>
+        <span class="art-plant plant-two"></span>
+        <div class="art-note"><span>YOUR MONEY, IN BALANCE</span><strong>Spend well.<br>Sleep well.</strong><i>✳</i></div>
+      </div>
+      <p class="auth-footnote">Private by default. Your numbers belong to you.</p>
+    </div>
+    <div class="auth-panel">
+      <div class="auth-mobile-brand">
+        <a class="wordmark" href="/"><span class="brand-mark" aria-hidden="true">l.</span><span>ledger house</span></a>
+      </div>
+      <div class="auth-form-wrap">
+        <p class="eyebrow" id="auth-kicker">YOUR PERSONAL LEDGER</p>
+        <h2 id="auth-title">Welcome back.</h2>
+        <p class="auth-subtitle" id="auth-subtitle">A clear view of your money starts here.</p>
+        <form id="auth-form">
+          <label class="field auth-name-field" hidden for="auth-name">Your name
+            <input id="auth-name" name="name" autocomplete="name" maxlength="80" placeholder="How should we call you?">
+          </label>
+          <label class="field" for="auth-email">Email address
+            <input id="auth-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+          </label>
+          <label class="field" for="auth-password">Password
+            <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="8" required placeholder="At least 8 characters">
+          </label>
+          <button class="button button-primary button-wide" id="auth-submit" type="submit">Sign in <span aria-hidden="true">↗</span></button>
+          <p class="form-error" id="auth-error" role="alert"></p>
+        </form>
+        <p class="auth-switch"><span id="auth-switch-copy">New around here?</span> <button type="button" class="text-button" id="auth-switch">Create an account</button></p>
+      </div>
+      <p class="auth-privacy">Your transactions and budgets stay in your private account.</p>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell" hidden>
+    <aside class="sidebar">
+      <a class="wordmark sidebar-brand" href="#" data-view="overview">
+        <span class="brand-mark" aria-hidden="true">l.</span><span class="brand-name">ledger house</span>
+      </a>
+      <p class="nav-label">YOUR SPACE</p>
+      <nav class="main-nav" aria-label="Main navigation">
+        <button class="nav-item active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
+        <button class="nav-item" data-view="transactions"><span class="nav-icon">⇄</span>Transactions</button>
+        <button class="nav-item" data-view="budgets"><span class="nav-icon">◉</span>Budgets</button>
+        <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Preferences</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-profile">
+          <span class="avatar" id="user-avatar">L</span>
+          <span class="profile-copy"><strong id="user-name">Your account</strong><small>Personal ledger</small></span>
+          <button class="icon-button logout-button" id="logout-button" aria-label="Sign out" title="Sign out">↗</button>
+        </div>
+      </div>
+    </aside>
+    <main class="main-area">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark">l.</span><span>ledger house</span></div>
+        <div class="breadcrumb"><span>YOUR SPACE</span><b>/</b><strong id="breadcrumb-title">Overview</strong></div>
+        <div class="topbar-actions">
+          <span class="today-label" id="today-label"></span>
+          <button class="button button-primary button-new" data-open-transaction><span>＋</span> Add transaction</button>
+        </div>
+      </header>
+      <section id="page-content" class="page-content" aria-live="polite"></section>
+      <footer class="page-footer"><span>A little more clarity, every day.</span><span>LEDGER HOUSE <i>✳</i></span></footer>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="transaction-modal" hidden>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="transaction-modal-title">
+      <div class="modal-heading">
+        <div><p class="eyebrow">KEEP YOUR LEDGER CLOSE</p><h2 id="transaction-modal-title">Add a transaction</h2></div>
+        <button class="icon-button modal-close" data-close-modal aria-label="Close">×</button>
+      </div>
+      <form id="transaction-form">
+        <div class="transaction-kind" role="group" aria-label="Transaction type">
+          <button type="button" class="kind-choice selected debit-choice" data-kind="debit"><span>↗</span><span><strong>Debit</strong><small>Money out</small></span></button>
+          <button type="button" class="kind-choice credit-choice" data-kind="credit"><span>↙</span><span><strong>Credit</strong><small>Money in</small></span></button>
+        </div>
+        <input type="hidden" id="transaction-kind" value="debit">
+        <div class="form-grid">
+          <label class="field" for="transaction-amount">Amount
+            <div class="input-with-prefix"><span id="currency-symbol">₹</span><input id="transaction-amount" type="number" min="0.01" max="100000000" step="0.01" placeholder="0.00" required></div>
+          </label>
+          <label class="field" for="transaction-date">Date
+            <input id="transaction-date" type="date" required>
+          </label>
+          <label class="field" for="transaction-category">Category
+            <select id="transaction-category" required></select>
+          </label>
+          <label class="field" for="transaction-payee">Description
+            <input id="transaction-payee" maxlength="100" placeholder="e.g. Weekly groceries" required>
+          </label>
+          <label class="field field-full" for="transaction-note">Note <span class="optional-label">OPTIONAL</span>
+            <input id="transaction-note" maxlength="500" placeholder="A detail you'll want to remember">
+          </label>
+        </div>
+        <p class="form-error" id="transaction-error" role="alert"></p>
+        <div class="modal-actions"><button type="button" class="button button-quiet" data-close-modal>Cancel</button><button class="button button-primary" id="transaction-submit" type="submit">Save transaction <span>↗</span></button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="budget-modal" hidden>
+    <section class="modal-card budget-modal-card" role="dialog" aria-modal="true" aria-labelledby="budget-modal-title">
+      <div class="modal-heading">
+        <div><p class="eyebrow">A PLAN THAT FEELS LIKE YOURS</p><h2 id="budget-modal-title">Set a monthly budget</h2></div>
+        <button class="icon-button modal-close" data-close-modal aria-label="Close">×</button>
+      </div>
+      <form id="budget-form">
+        <label class="field" for="budget-category">Spending category
+          <select id="budget-category" required></select>
+        </label>
+        <label class="field" for="budget-limit">Monthly limit
+          <div class="input-with-prefix"><span>₹</span><input id="budget-limit" type="number" min="0.01" step="0.01" placeholder="e.g. 12,000" required></div>
+        </label>
+        <p class="modal-hint">We'll keep an eye on this category as your month unfolds.</p>
+        <p class="form-error" id="budget-error" role="alert"></p>
+        <div class="modal-actions"><button type="button" class="button button-quiet" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Save budget <span>↗</span></button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+</body>
+</html>
