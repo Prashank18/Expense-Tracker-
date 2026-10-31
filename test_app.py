@@ -85,6 +85,7 @@ class LedgerApiTests(unittest.TestCase):
             ("/", b"Expense Tracker"),
             ("/app.css", b"--forest"),
             ("/app.js", b"renderOverview"),
+            ("/supabase-config.js", b"EXPENSE_TRACKER_SUPABASE"),
         )
         for path, expected in assets:
             with urlopen(self.base_url + path, timeout=5) as response:

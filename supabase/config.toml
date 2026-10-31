@@ -1,0 +1,4 @@
+project_id = "expense-tracker"
+
+[functions.check-budget-alert]
+verify_jwt = true

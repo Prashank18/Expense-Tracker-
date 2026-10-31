@@ -312,7 +312,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == "/":
             self.serve_file("index.html", "text/html; charset=utf-8")
             return
-        if path in ("/app.css", "/app.js"):
+        if path in ("/app.css", "/app.js", "/supabase-config.js"):
             content_type = "text/css; charset=utf-8" if path.endswith(".css") else "text/javascript; charset=utf-8"
             self.serve_file(path[1:], content_type)
             return

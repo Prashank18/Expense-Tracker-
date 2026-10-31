@@ -5,13 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4f3ed">
   <title>Expense Tracker | Income, Spending &amp; Budgets</title>
-  <link rel="stylesheet" href="/app.css">
-  <script src="/app.js" defer></script>
+  <link rel="stylesheet" href="./app.css">
+  <script src="./supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+  <script src="./app.js" defer></script>
 </head>
 <body>
   <section id="auth-screen" class="auth-screen">
     <div class="auth-story">
-      <a class="wordmark wordmark-light" href="/">
+      <a class="wordmark wordmark-light" href="./">
         <span class="brand-mark" aria-hidden="true">₹</span>
         <span>Expense Tracker</span>
       </a>
@@ -32,7 +34,7 @@
     </div>
     <div class="auth-panel">
       <div class="auth-mobile-brand">
-        <a class="wordmark" href="/"><span class="brand-mark" aria-hidden="true">₹</span><span>Expense Tracker</span></a>
+        <a class="wordmark" href="./"><span class="brand-mark" aria-hidden="true">₹</span><span>Expense Tracker</span></a>
       </div>
       <div class="auth-form-wrap">
         <p class="eyebrow" id="auth-kicker">EXPENSE TRACKER</p>

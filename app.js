@@ -9,6 +9,18 @@ const state = {
   authMode: "login",
 };
 
+const supabaseConfig = window.EXPENSE_TRACKER_SUPABASE || {};
+const supabaseConfigured = Boolean(supabaseConfig.url && supabaseConfig.publishableKey);
+const supabasePartiallyConfigured = Boolean(supabaseConfig.url || supabaseConfig.publishableKey)
+  && !supabaseConfigured;
+const cloudClient = supabaseConfigured && window.supabase
+  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
+  : null;
+const CATEGORIES = [
+  "Food & Dining", "Transport", "Housing", "Bills & Utilities", "Shopping",
+  "Health", "Entertainment", "Education", "Travel", "Income", "Other",
+];
+
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
 const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
@@ -50,6 +62,15 @@ function toast(message) {
 }
 
 async function api(path, options = {}) {
+  if (supabasePartiallyConfigured) {
+    throw new Error("Set both the Supabase project URL and publishable key in supabase-config.js, or clear both to use SQLite.");
+  }
+  if (supabaseConfigured) {
+    if (!cloudClient) {
+      throw new Error("Supabase could not load. Check your internet connection and reload the page.");
+    }
+    return supabaseApi(path, options);
+  }
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (options.method && options.method !== "GET" && state.csrf) {
     headers["X-CSRF-Token"] = state.csrf;
@@ -72,6 +93,257 @@ async function api(path, options = {}) {
   if (!response.ok) throw new Error(result.error || "Something went wrong. Please try again.");
   if (result.csrf) state.csrf = result.csrf;
   return result;
+}
+
+function requestPayload(options) {
+  return options.body ? JSON.parse(options.body) : {};
+}
+
+function throwIfError(error) {
+  if (error) throw new Error(error.message || "Supabase request failed.");
+}
+
+async function getCloudIdentity() {
+  const { data, error } = await cloudClient.auth.getUser();
+  throwIfError(error);
+  if (!data.user) throw new Error("Please sign in to continue.");
+  return data.user;
+}
+
+async function getCloudProfile(user) {
+  let { data: profile, error } = await cloudClient
+    .from("profiles").select("*").eq("id", user.id).maybeSingle();
+  throwIfError(error);
+  if (!profile) {
+    const result = await cloudClient.from("profiles").insert({
+      id: user.id,
+      name: user.user_metadata?.name || user.email?.split("@")[0] || "Expense Tracker user",
+    }).select("*").single();
+    throwIfError(result.error);
+    profile = result.data;
+  }
+  return profile;
+}
+
+async function invokeBudgetAlert(category) {
+  if (!supabaseConfig.whatsappAlertsEnabled) return null;
+  const { data, error } = await cloudClient.functions.invoke("check-budget-alert", {
+    body: { category },
+  });
+  if (error) return error.message;
+  return data?.status === "failed" ? "WhatsApp alert delivery failed." : null;
+}
+
+function cloudDashboard(transactions, budgets, period) {
+  const today = todayIso();
+  const now = new Date();
+  const month = today.slice(0, 7);
+  let labels;
+  let from;
+  if (period === "daily") {
+    const start = new Date(now);
+    start.setDate(start.getDate() - 6);
+    from = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+    labels = Array.from({ length: 7 }, (_, index) => {
+      const value = new Date(start);
+      value.setDate(value.getDate() + index);
+      return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    });
+  } else if (period === "yearly") {
+    from = `${now.getFullYear() - 4}-01-01`;
+    labels = Array.from({ length: 5 }, (_, index) => String(now.getFullYear() - 4 + index));
+  } else {
+    const firstMonth = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    from = `${firstMonth.getFullYear()}-${String(firstMonth.getMonth() + 1).padStart(2, "0")}-01`;
+    labels = Array.from({ length: 6 }, (_, index) => {
+      const value = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + index, 1);
+      return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
+    });
+  }
+
+  const selectLabel = (transaction) => period === "daily"
+    ? transaction.transaction_date
+    : period === "yearly"
+      ? transaction.transaction_date.slice(0, 4)
+      : transaction.transaction_date.slice(0, 7);
+  const chart = labels.map((label) => {
+    const matching = transactions.filter((item) =>
+      item.transaction_date >= from && item.transaction_date <= today && selectLabel(item) === label);
+    return {
+      label,
+      debit: matching.filter((item) => item.kind === "debit").reduce((sum, item) => sum + Number(item.amount), 0),
+      credit: matching.filter((item) => item.kind === "credit").reduce((sum, item) => sum + Number(item.amount), 0),
+    };
+  });
+  const currentMonth = transactions.filter((item) => item.transaction_date.startsWith(month));
+  const debit = currentMonth.filter((item) => item.kind === "debit")
+    .reduce((sum, item) => sum + Number(item.amount), 0);
+  const credit = currentMonth.filter((item) => item.kind === "credit")
+    .reduce((sum, item) => sum + Number(item.amount), 0);
+  const budgetRows = budgets.map((budget) => {
+    const limit = Number(budget.monthly_limit);
+    const spent = currentMonth
+      .filter((item) => item.kind === "debit" && item.category === budget.category)
+      .reduce((sum, item) => sum + Number(item.amount), 0);
+    return { id: budget.id, category: budget.category, limit, spent, ratio: limit ? spent / limit : 0 };
+  });
+  const categoryTotals = new Map();
+  currentMonth.filter((item) => item.kind === "debit").forEach((item) => {
+    categoryTotals.set(item.category, (categoryTotals.get(item.category) || 0) + Number(item.amount));
+  });
+  return {
+    period,
+    totals: {
+      debit, credit, net: credit - debit,
+      budget: budgetRows.reduce((sum, item) => sum + item.limit, 0),
+    },
+    chart,
+    budgets: budgetRows,
+    transactions: transactions.slice(0, 7),
+    categories: [...categoryTotals.entries()]
+      .map(([category, spent]) => ({ category, spent }))
+      .sort((left, right) => right.spent - left.spent)
+      .slice(0, 5),
+  };
+}
+
+async function fetchCloudDashboardTransactions() {
+  const now = new Date();
+  const fiveYearsAgo = `${now.getFullYear() - 4}-01-01`;
+  const today = todayIso();
+  const transactions = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await cloudClient.from("transactions").select("*")
+      .gte("transaction_date", fiveYearsAgo)
+      .lte("transaction_date", today)
+      .order("transaction_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + 999);
+    throwIfError(error);
+    transactions.push(...(data || []));
+    if (!data || data.length < 1000) return transactions;
+  }
+}
+
+async function supabaseApi(path, options = {}) {
+  const method = options.method || "GET";
+  const payload = requestPayload(options);
+
+  if (path === "/api/register" && method === "POST") {
+    const { data, error } = await cloudClient.auth.signUp({
+      email: payload.email,
+      password: payload.password,
+      options: {
+        data: { name: payload.name },
+        emailRedirectTo: window.location.href.split(/[?#]/)[0],
+      },
+    });
+    throwIfError(error);
+    if (!data.session) return { pending_confirmation: true };
+    return { user: { name: payload.name, email: payload.email } };
+  }
+  if (path === "/api/login" && method === "POST") {
+    const { data, error } = await cloudClient.auth.signInWithPassword({
+      email: payload.email, password: payload.password,
+    });
+    throwIfError(error);
+    return { user: { name: data.user.user_metadata?.name || data.user.email, email: data.user.email } };
+  }
+  if (path === "/api/logout" && method === "POST") {
+    const { error } = await cloudClient.auth.signOut();
+    throwIfError(error);
+    return { ok: true };
+  }
+
+  const user = await getCloudIdentity();
+  if (path === "/api/me" && method === "GET") {
+    const profile = await getCloudProfile(user);
+    return {
+      user: {
+        name: profile.name,
+        email: user.email,
+        whatsapp_phone: profile.whatsapp_phone || "",
+        whatsapp_opt_in: Boolean(profile.whatsapp_opt_in),
+      },
+      categories: CATEGORIES,
+      whatsapp_ready: Boolean(supabaseConfig.whatsappAlertsEnabled),
+    };
+  }
+  if (path === "/api/transactions" && method === "GET") {
+    const { data, error } = await cloudClient.from("transactions").select("*")
+      .order("transaction_date", { ascending: false }).order("created_at", { ascending: false }).limit(100);
+    throwIfError(error);
+    return { transactions: data || [] };
+  }
+  if (path.startsWith("/api/dashboard") && method === "GET") {
+    const period = new URLSearchParams(path.split("?")[1] || "").get("period") || "monthly";
+    const [transactionResult, budgetResult] = await Promise.all([
+      fetchCloudDashboardTransactions(),
+      cloudClient.from("budgets").select("*").order("category"),
+    ]);
+    throwIfError(budgetResult.error);
+    return cloudDashboard(transactionResult, budgetResult.data || [], period);
+  }
+  if (path === "/api/transactions" && method === "POST") {
+    const amount = Number(payload.amount);
+    if (!["debit", "credit"].includes(payload.kind) || !Number.isFinite(amount) || amount <= 0) {
+      throw new Error("Enter a valid transaction type and amount.");
+    }
+    if (!/^\d+(?:\.\d{1,2})?$/.test(String(payload.amount)) || amount > 100000000) {
+      throw new Error("Amount must be at most 100,000,000 and have at most two decimal places.");
+    }
+    if (payload.kind === "debit" && payload.category === "Income") {
+      throw new Error("Choose a spending category for a debit.");
+    }
+    if (!CATEGORIES.includes(payload.category) || !payload.payee?.trim() || !payload.date) {
+      throw new Error("Complete the category, description, and date fields.");
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.date) || payload.date > todayIso()) {
+      throw new Error("Choose a valid date that is not in the future.");
+    }
+    const { error } = await cloudClient.from("transactions").insert({
+      user_id: user.id,
+      kind: payload.kind,
+      amount,
+      category: payload.category,
+      payee: payload.payee.trim(),
+      note: payload.note || "",
+      transaction_date: payload.date,
+    });
+    throwIfError(error);
+    const alertWarning = payload.kind === "debit" ? await invokeBudgetAlert(payload.category) : null;
+    return { ok: true, alert_warning: alertWarning };
+  }
+  if (path === "/api/budgets" && method === "POST") {
+    const limit = Number(payload.limit);
+    if (!CATEGORIES.includes(payload.category) || payload.category === "Income" || !Number.isFinite(limit) || limit <= 0) {
+      throw new Error("Choose a spending category and a budget greater than zero.");
+    }
+    if (!/^\d+(?:\.\d{1,2})?$/.test(String(payload.limit)) || limit > 100000000) {
+      throw new Error("Budget must be at most 100,000,000 and have at most two decimal places.");
+    }
+    const { error } = await cloudClient.from("budgets").upsert({
+      user_id: user.id, category: payload.category, monthly_limit: limit,
+    }, { onConflict: "user_id,category" });
+    throwIfError(error);
+    await invokeBudgetAlert(payload.category);
+    return { ok: true };
+  }
+  if (path === "/api/settings" && method === "POST") {
+    const phone = String(payload.whatsapp_phone || "").trim();
+    const optedIn = payload.whatsapp_opt_in === true;
+    if (phone && !/^\+[1-9]\d{7,14}$/.test(phone)) {
+      throw new Error("Use an international number, for example +14155550123.");
+    }
+    if (optedIn && !phone) throw new Error("Enter a WhatsApp number before opting in.");
+    if (phone && !optedIn) throw new Error("Please opt in before enabling WhatsApp budget alerts.");
+    const { error } = await cloudClient.from("profiles").update({
+      whatsapp_phone: phone, whatsapp_opt_in: optedIn,
+    }).eq("id", user.id);
+    throwIfError(error);
+    return { ok: true, whatsapp_ready: Boolean(supabaseConfig.whatsappAlertsEnabled) };
+  }
+  throw new Error("That Supabase operation is not supported.");
 }
 
 function showAuth() {
@@ -296,6 +568,7 @@ function renderBudgets() {
 
 function renderSettings() {
   const ready = Boolean(state.user.whatsapp_ready && state.user.whatsapp_phone && state.user.whatsapp_opt_in);
+  const cloudAlerts = supabaseConfigured && supabaseConfig.whatsappAlertsEnabled;
   $("#page-content").innerHTML = `
     <div class="page-heading"><div><p class="eyebrow">MAKE IT FEEL LIKE YOURS</p><h1>Preferences</h1><p>Choose where your budget alerts should find you.</p></div></div>
     <div class="settings-grid">
@@ -312,7 +585,7 @@ function renderSettings() {
       <section class="panel settings-panel">
         <h2>Delivery status</h2>
         <p>Alerts are checked as new debits are recorded and sent once per category each month.</p>
-        <div class="status-box"><i class="status-dot ${ready ? "ready" : ""}"></i><span>${ready ? "WhatsApp alerts are enabled for your account." : "Add your number and opt in here. Delivery also needs the app owner to configure Twilio and an approved WhatsApp template on the server."}</span></div>
+        <div class="status-box"><i class="status-dot ${ready ? "ready" : ""}"></i><span>${ready ? "WhatsApp alerts are enabled for your account." : cloudAlerts ? "Add your number and opt in. Twilio credentials and an approved template must also be configured in the Supabase Edge Function." : supabaseConfigured ? "Budget progress is saved to Supabase. To send WhatsApp alerts, deploy the Supabase function and enable it in supabase-config.js." : "Add your number and opt in here. Delivery also needs the app owner to configure Twilio and an approved WhatsApp template on the server."}</span></div>
         <p class="settings-footnote">Without a connected provider, your budgets and in-app progress still work normally.</p>
       </section>
     </div>`;
@@ -359,6 +632,10 @@ async function handleAuth(event) {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    if (result.pending_confirmation) {
+      error.textContent = "Check your email for a confirmation link, then sign in.";
+      return;
+    }
     state.user = result.user;
     state.csrf = result.csrf;
     state.categories = result.categories;
@@ -402,11 +679,13 @@ async function saveTransaction(event) {
     date: $("#transaction-date").value,
   };
   try {
-    await api("/api/transactions", { method: "POST", body: JSON.stringify(payload) });
+    const result = await api("/api/transactions", { method: "POST", body: JSON.stringify(payload) });
     closeModals();
     $("#transaction-form").reset();
     $("#transaction-date").value = todayIso();
-    toast(payload.kind === "credit" ? "Credit added to your ledger." : "Debit added to your ledger.");
+    toast(result.alert_warning
+      ? "Transaction saved. WhatsApp alert delivery could not be reached."
+      : payload.kind === "credit" ? "Credit added to your ledger." : "Debit added to your ledger.");
     await renderView();
   } catch (problem) {
     error.textContent = problem.message;
@@ -509,6 +788,34 @@ function bindEvents() {
 async function boot() {
   bindEvents();
   setAuthMode("login");
+  if (supabasePartiallyConfigured) {
+    showAuth();
+    $("#auth-error").textContent = "Set both the Supabase project URL and publishable key in supabase-config.js, or clear both to use SQLite.";
+    return;
+  }
+  if (supabaseConfigured) {
+    if (!cloudClient) {
+      showAuth();
+      $("#auth-error").textContent = "Supabase could not load. Check your internet connection and reload the page.";
+      return;
+    }
+    try {
+      const { data, error } = await cloudClient.auth.getSession();
+      throwIfError(error);
+      if (!data.session) {
+        showAuth();
+        return;
+      }
+      const me = await api("/api/me");
+      state.user = { ...me.user, whatsapp_ready: me.whatsapp_ready };
+      state.categories = me.categories;
+      showApp();
+    } catch (error) {
+      showAuth();
+      $("#auth-error").textContent = error.message;
+    }
+    return;
+  }
   try {
     const me = await api("/api/me");
     state.user = { ...me.user, whatsapp_ready: me.whatsapp_ready };
